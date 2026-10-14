@@ -1,0 +1,59 @@
+{
+  "bind": "127.0.0.1",
+  "advertise_url": "http://127.0.0.1:8080",
+  "log_path": "events.jsonl",
+  "canary_store": "canaries.json",
+  "canary_output_dir": "canaries",
+
+  "services": {
+    "ssh": { "enabled": true, "port": 2222 },
+    "http": { "enabled": true, "port": 8080 },
+    "compute": { "enabled": true, "port": 11435 },
+    "database": { "enabled": true, "port": 15432 },
+    "adb": { "enabled": true, "port": 5555 }
+  },
+
+  "adb": {
+    "bind": null,
+    "responses_file": "adb_responses.example.json",
+    "max_message_bytes": 65536,
+    "max_commands_per_session": 64,
+    "max_total_bytes_per_session": 4194304,
+    "idle_timeout_seconds": 30,
+    "faster_than_human_gap_ms": 150,
+    "min_commands_for_automation": 3,
+    "identity": {
+      "ro.product.name": "tvbox",
+      "ro.product.model": "TV Box",
+      "ro.product.device": "tvbox",
+      "ro.product.brand": "Generic",
+      "ro.build.version.release": "11",
+      "features": "cmd,shell_v2,shell_v3"
+    }
+  },
+
+  "limits": {
+    "max_connections": 64,
+    "per_connection_timeout_seconds": 10,
+    "max_read_bytes": 4096,
+    "payload_cap_bytes": 4096,
+    "max_header_bytes": 16384
+  },
+
+  "alerts": {
+    "webhook_url": null,
+    "telegram": {
+      "bot_token": null,
+      "chat_id": null
+    },
+    "min_severity": "medium",
+    "dedupe_window_seconds": 120,
+    "per_ip_max_per_window": 5,
+    "timeout_seconds": 5
+  },
+
+  "dashboard": {
+    "enabled": false,
+    "port": 8090
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "identity": {
+    "ro.product.name": "tvbox",
+    "ro.product.model": "TV Box",
+    "ro.product.device": "tvbox",
+    "ro.product.brand": "Generic",
+    "ro.build.version.release": "11",
+    "ro.build.type": "user",
+    "ro.debuggable": "1",
+    "features": "cmd,shell_v2,shell_v3"
+  },
+  "responses": {
+    "id": "uid=2000(shell) gid=2000(shell) context=u:r:shell:s0",
+    "whoami": "shell",
+    "uname": "Linux",
+    "uname -a": "Linux localhost 5.10.66 #1 SMP PREEMPT aarch64 Toybox",
+    "cat /proc/version": "Linux version 5.10.66 (build@localhost) aarch64-linux-android #1 SMP PREEMPT",
+    "getprop": "[ro.product.model]: [TV Box]\n[ro.product.name]: [tvbox]\n[ro.build.version.release]: [11]\n[ro.build.type]: [user]\n[ro.debuggable]: [1]\n",
+    "ls": "acct\ncache\nconfig\ndata\ndev\netc\nmnt\nproc\nsbin\nsdcard\nstorage\nsys\nsystem\nvendor\n",
+    "ls -la /data/local/tmp": "total 0\ndrwxrwxrwx 2 shell shell 4096 2026-01-01 00:00 .\ndrwx--x--x 4 shell shell 4096 2026-01-01 00:00 ..\n",
+    "cat /proc/cpuinfo": "Processor\t: AArch64 Processor rev 4 (aarch64)\nHardware\t: Amlogic\n",
+    "pm list packages": "package:com.android.settings\npackage:com.android.systemui\npackage:com.android.providers.settings\n",
+    "ps": "USER   PID  PPID VSZ   RSS WCHAN ADDR S NAME\nshell  123  1  12345 2345 0 0 S sh\n",
+    "ps -A": "USER   PID  PPID VSZ   RSS WCHAN ADDR S NAME\nshell  123  1  12345 2345 0 0 S sh\n",
+    "netstat": "Active Internet connections\n"
+  }
+}

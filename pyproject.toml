@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "botpolice"
+version = "0.1.0"
+description = "Defensive honeypot and canary-token system for detecting AI-driven worm activity on a network you control"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "botpolice" }]
+keywords = ["honeypot", "canary", "deception", "security", "defense"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+# The listener and all core components use only the Python standard library.
+# The optional read-only dashboard (botpolice.dashboard) needs Flask; see
+# requirements.txt for the pinned optional dependency.
+dependencies = []
+
+[project.optional-dependencies]
+dashboard = ["flask==3.0.3"]
+dev = ["ruff==0.6.9"]
+
+[project.scripts]
+botpolice = "botpolice.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/TheDub-lab/botpolice"
+Issues = "https://github.com/TheDub-lab/botpolice/issues"
+
+[tool.setuptools.packages.find]
+include = ["botpolice*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["botpolice", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]

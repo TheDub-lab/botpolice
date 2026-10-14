@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Runtime artifacts (never commit logs, canary mappings, or generated decoys)
+events.jsonl
+canaries.json
+canaries/
+config.json
+*.log

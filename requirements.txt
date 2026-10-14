@@ -1,0 +1,9 @@
+# botpolice core (listener, event log, canaries, alerting, CLI) depends only on
+# the Python 3.11+ standard library. There are no required third-party packages.
+#
+# The only third-party dependency is the optional, read-only web dashboard.
+# Install it with:  pip install -r requirements.txt
+# or enable the `dashboard` extra:  pip install "botpolice[dashboard]"
+#
+# Pinned for reproducibility.
+flask==3.0.3

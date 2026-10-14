@@ -1,0 +1,74 @@
+# botpolice -- hardened, isolated decoy listener.
+#
+# Works with both `docker compose` and `podman-compose`.
+#
+#   podman-compose up -d
+#   docker compose up -d
+#
+# Safety posture:
+#   - internal network: the container has NO route to the internet or LAN
+#   - published ports bind to 127.0.0.1 only (change to the host-only IP for a
+#     lab; NEVER publish these to a public/routable interface)
+#   - read-only root filesystem; only the /data volume is writable
+#   - all Linux capabilities dropped, no-new-privileges, non-root user
+#   - memory / CPU / PID limits
+#
+# NOTE: because the network is `internal`, a configured alert webhook cannot
+# reach the internet. If you need webhook delivery, remove `internal: true`
+# (and accept that the container can then make outbound connections).
+
+services:
+  botpolice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: botpolice:latest
+    container_name: botpolice
+
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      # Read-only config; copy config.example.json to config.json and edit it.
+      - ./config.example.json:/data/config.json:ro
+      # Writable state: event log, canary store, generated decoys.
+      - botpolice-data:/data
+
+    environment:
+      # Inside the container the listener must bind all interfaces so published
+      # ports work; exposure is still constrained by the port mappings below.
+      BOTPOLICE_BIND: "0.0.0.0"
+      # Set this to the address an attacker would use to reach the decoys,
+      # e.g. the VM's host-only IP. Falls back to the config's advertise_url.
+      # BOTPOLICE_ADVERTISE_URL: "http://192.168.56.10:8080"
+
+    ports:
+      - "127.0.0.1:2222:2222"     # fake SSH
+      - "127.0.0.1:8080:8080"     # fake admin web panel / tripwire
+      - "127.0.0.1:11435:11435"   # fake LLM inference API
+      - "127.0.0.1:15432:15432"   # fake database
+      - "127.0.0.1:5555:5555"     # fake open Android TV box (ADB)
+
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 128m
+    cpus: 0.50
+    pids_limit: 128
+
+    networks:
+      - botpolice-net
+
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+networks:
+  botpolice-net:
+    driver: bridge
+    internal: true
+
+volumes:
+  botpolice-data:

@@ -1,0 +1,45 @@
+[Unit]
+Description=botpolice defensive honeypot and canary listener
+Documentation=file:%h/botpolice/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Adjust these paths to where you cloned botpolice and (optionally) your venv.
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=%h/botpolice
+ExecStart=%h/.local/bin/botpolice run --config %h/botpolice/config.json
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Sandboxing. The listener needs no privileges and only writes its own dir.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/botpolice
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=botpolice
+
+[Install]
+WantedBy=default.target
