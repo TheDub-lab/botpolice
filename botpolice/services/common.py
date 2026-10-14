@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..config import Config, Limits
+from ..config import DEFAULT_ADB_IDENTITY, Config, Limits
 from ..sink import EventSink
 
 
@@ -33,6 +33,10 @@ class ServiceContext:
     limiter: ConnectionLimiter = field(default_factory=lambda: ConnectionLimiter(64))
     matcher: Callable[[str], Any] | None = None
     http_url: str = "http://127.0.0.1:8080"
+    log: Any | None = None
+    ssh_banner: bytes | None = None
+    http_server: str = "nginx/1.24.0"
+    adb_identity: dict[str, str] | None = None
 
 
 async def read_first(reader: asyncio.StreamReader, max_bytes: int, timeout: float) -> bytes:
@@ -81,6 +85,7 @@ def build_context(config: Config) -> ServiceContext:
     """Build the shared service context (sink, limiter, matcher) from config."""
     from ..alerting import build_alerter
     from ..canary import CanaryStore
+    from ..decoys import resolve_identity
     from ..eventlog import EventLog
 
     log = EventLog(config.resolve(config.log_path))
@@ -88,12 +93,22 @@ def build_context(config: Config) -> ServiceContext:
     sink = EventSink(log, alerter=alerter, limits=config.limits)
     limiter = ConnectionLimiter(config.limits.max_connections)
     matcher = CanaryStore(config.resolve(config.canary_store)).match
+
+    profile = resolve_identity(config)
+    adb_identity = config.adb.identity
+    if adb_identity == DEFAULT_ADB_IDENTITY:
+        adb_identity = profile.adb_identity
+
     return ServiceContext(
         sink=sink,
         limits=config.limits,
         limiter=limiter,
         matcher=matcher,
         http_url=config.listener_url(),
+        log=log,
+        ssh_banner=profile.ssh_banner.encode("ascii", "replace"),
+        http_server=profile.http_server,
+        adb_identity=adb_identity,
     )
 
 
@@ -109,14 +124,17 @@ async def start_all(
         ctx = build_context(config)
 
     starters: dict[str, Callable[..., Any]] = {
-        "ssh": ssh.start_ssh,
+        "ssh": partial(ssh.start_ssh, banner=ctx.ssh_banner),
         "http": http.start_http,
         "compute": compute.start_compute,
         "database": database.start_database,
         "adb": partial(
             adb.start_adb,
             config=config.adb,
-            data=adb.AdbData.load(config.resolve(config.adb.responses_file), config.adb.identity),
+            data=adb.AdbData.load(
+                config.resolve(config.adb.responses_file),
+                ctx.adb_identity or config.adb.identity,
+            ),
         ),
     }
 

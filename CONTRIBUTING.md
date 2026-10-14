@@ -68,6 +68,23 @@ ruff check botpolice tests
 5. Cap message size, session length, and concurrency; add an idle timeout.
 6. Add tests and update the README.
 
+## Branching model
+
+- **`production`** is the integration branch. All work (including contributions)
+  lands here first.
+- **`main`** is the release branch and the repository default. It only receives
+  reviewed changes merged from `production`.
+- Open a pull request from `production` into `main` when a release is ready.
+  Because the branches are typically identical right after a release, a PR is
+  only meaningful once `production` has new commits ahead of `main`.
+
+```bash
+git switch production
+# ... commit your work ...
+git push origin production
+# then open a PR: production -> main
+```
+
 ## Commit and PR style
 
 - Keep commits focused and messages in the imperative mood.

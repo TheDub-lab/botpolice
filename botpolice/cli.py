@@ -1,9 +1,11 @@
 """Command-line interface for botpolice.
 
     botpolice run --config config.json
-    botpolice canary new --placement <name> --type env|aws|ssh|json|tripwire
+    botpolice canary new --placement <name> --type env|aws|ssh|json|tripwire|markdown|agents|claude
     botpolice canary list [--store canaries.json]
     botpolice verify-log --path events.jsonl
+    botpolice rotate-decoys [--config config.json]
+    botpolice anchor [--config config.json]
 """
 
 from __future__ import annotations
@@ -18,7 +20,8 @@ from pathlib import Path
 from . import __version__
 from .canary import VALID_TYPES, CanaryStore
 from .config import Config, load_config_with_source
-from .eventlog import verify_log
+from .decoys import DecoyIdentity, save_identity
+from .eventlog import EventLog, verify_log
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -51,6 +54,18 @@ def _build_parser() -> argparse.ArgumentParser:
     verify_p = sub.add_parser("verify-log", help="verify the hash chain of an event log")
     verify_p.add_argument("--path", default="events.jsonl", help="JSONL event log path")
     verify_p.add_argument("--json", action="store_true", help="machine-readable output")
+
+    rotate_p = sub.add_parser(
+        "rotate-decoys", help="generate a new randomized decoy identity"
+    )
+    rotate_p.add_argument("--config", default="config.json", help="path to config JSON")
+    rotate_p.add_argument("--json", action="store_true", help="machine-readable output")
+
+    anchor_p = sub.add_parser(
+        "anchor", help="ship the current log chain head to the configured destination"
+    )
+    anchor_p.add_argument("--config", default="config.json", help="path to config JSON")
+    anchor_p.add_argument("--json", action="store_true", help="machine-readable output")
 
     return parser
 
@@ -146,6 +161,50 @@ def cmd_verify_log(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+def cmd_anchor(args: argparse.Namespace) -> int:
+    config_path = Path(args.config)
+    if not config_path.exists():
+        print(f"botpolice: config not found: {config_path}", file=sys.stderr)
+        return 2
+    config, _ = load_config_with_source(config_path)
+
+    from .anchor import ChainAnchor
+
+    log = EventLog(config.resolve(config.log_path))
+    payload = ChainAnchor(config.anchor, config.alerts, log).anchor_once()
+    if payload is None:
+        print("botpolice: log is empty; nothing to anchor", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"anchored head : {payload['head']}")
+        print(f"seq           : {payload['seq']}")
+        print(f"delivered     : {payload['delivered']}")
+    return 0
+
+
+def cmd_rotate_decoys(args: argparse.Namespace) -> int:
+    config_path = Path(args.config)
+    if config_path.exists():
+        config, _ = load_config_with_source(config_path)
+    else:
+        config = Config.from_dict({})
+
+    path = config.resolve(config.decoys.file)
+    identity = DecoyIdentity.random()
+    save_identity(path, identity)
+
+    if args.json:
+        print(json.dumps({"file": str(path), **identity.to_dict()}, indent=2))
+    else:
+        print(f"decoys file  : {path}")
+        print(f"ssh banner   : {identity.ssh_banner}")
+        print(f"http server  : {identity.http_server}")
+        print(f"adb device   : {identity.adb_identity.get('ro.product.name', '-')}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -159,6 +218,10 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_canary_list(args)
     if args.command == "verify-log":
         return cmd_verify_log(args)
+    if args.command == "rotate-decoys":
+        return cmd_rotate_decoys(args)
+    if args.command == "anchor":
+        return cmd_anchor(args)
 
     parser.print_help()
     return 2

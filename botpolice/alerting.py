@@ -2,7 +2,8 @@
 
 Delivery happens on a background thread and swallows every error: a dead or
 misconfigured webhook can never block or crash the listener. Only the
-configured alert destination is ever contacted (no other outbound traffic).
+configured alert destination is ever contacted (plus, when enabled, the
+:mod:`botpolice.anchor` destination) — no other outbound traffic.
 """
 
 from __future__ import annotations
@@ -88,7 +89,7 @@ class Alerter:
     def _deliver(self, alert: dict[str, Any]) -> None:
         try:
             if self.config.webhook_url:
-                _post_json(self.config.webhook_url, alert, self.config.timeout_seconds)
+                post_json(self.config.webhook_url, alert, self.config.timeout_seconds)
         except Exception:
             pass
         try:
@@ -101,7 +102,7 @@ class Alerter:
         text = format_alert_text(alert)
         url = f"https://api.telegram.org/bot{self.config.telegram_bot_token}/sendMessage"
         payload = {"chat_id": self.config.telegram_chat_id, "text": text}
-        _post_json(url, payload, self.config.timeout_seconds)
+        post_json(url, payload, self.config.timeout_seconds)
 
     def flush(self, timeout: float = 5.0) -> None:
         if self._executor is not None:
@@ -117,12 +118,18 @@ def format_alert_text(alert: dict[str, Any]) -> str:
     ]
     if alert.get("placement"):
         lines.append(f"placement: {alert['placement']}")
+    source = alert.get("source")
+    if isinstance(source, dict):
+        lines.append(
+            f"source: {source.get('event_count', '?')} event(s) since "
+            f"{source.get('first_seen', '?')}, max {source.get('highest_severity', '?')}"
+        )
     if alert.get("timestamp"):
         lines.append(f"at {alert['timestamp']}")
     return "\n".join(lines)
 
 
-def _post_json(url: str, payload: dict[str, Any], timeout: float) -> None:
+def post_json(url: str, payload: dict[str, Any], timeout: float) -> None:
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         url,

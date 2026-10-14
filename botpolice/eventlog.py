@@ -104,6 +104,14 @@ class EventLog:
             return str(entry.get("hash", GENESIS_HASH))
         return GENESIS_HASH
 
+    def head(self) -> str:
+        """Current chain head hash (genesis when the log is empty)."""
+        return self._last_hash
+
+    def has_entries(self) -> bool:
+        """Whether the log has at least one committed entry."""
+        return self._last_hash != GENESIS_HASH
+
     def append(self, fields: dict[str, Any]) -> dict[str, Any]:
         """Append one entry and return the stored record (including hashes)."""
         with self._lock:

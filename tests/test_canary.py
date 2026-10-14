@@ -53,11 +53,23 @@ class CanaryStoreTests(unittest.TestCase):
 
     def test_all_types_generate_and_match(self) -> None:
         store = self._store()
-        for kind in ("env", "aws", "ssh", "json", "tripwire"):
+        for kind in ("env", "aws", "ssh", "json", "tripwire", "markdown", "agents", "claude"):
             record = store.generate(f"place-{kind}", kind, "http://10.0.0.5:8080", self.out_dir)
             self.assertTrue(Path(record.file).exists(), kind)
             content = Path(record.file).read_text(encoding="utf-8")
             self.assertIn(record.token, content, kind)
+            self.assertIsNotNone(store.match(content), kind)
+
+    def test_agent_instruction_tripwires(self) -> None:
+        store = self._store()
+        for kind in ("markdown", "agents", "claude"):
+            record = store.generate(f"instr-{kind}", kind, "http://127.0.0.1:8080", self.out_dir)
+            self.assertTrue(record.file.endswith(".md"), kind)
+            content = Path(record.file).read_text(encoding="utf-8")
+            self.assertIn(record.token, content, kind)
+            self.assertIn(f"/t/{record.token}", content, kind)
+            self.assertIn("AI", content, kind)  # addresses automated agents/assistants
+            self.assertIn("<!--", content, kind)  # hidden tripwire comment
             self.assertIsNotNone(store.match(content), kind)
 
     def test_tripwire_contains_hidden_agent_instruction(self) -> None:

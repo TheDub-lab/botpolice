@@ -32,12 +32,20 @@ async def run(config: Config, ready: asyncio.Future | None = None) -> dict[str, 
 
         dashboard = start_dashboard(config)
 
+    anchor_task = None
+    if config.anchor.enabled and ctx.log is not None:
+        from .anchor import ChainAnchor
+
+        anchor_task = asyncio.create_task(
+            ChainAnchor(config.anchor, config.alerts, ctx.log).run()
+        )
+
     ctx.sink.record(
         event="listener_started",
         service="botpolice",
         severity="info",
         summary="decoy listeners started",
-        extra={"bind": config.bind, "ports": ports},
+        extra={"bind": config.bind, "ports": ports, "anchor": anchor_task is not None},
     )
     for name, port in ports.items():
         print(f"botpolice: {name} decoy listening on {config.bind}:{port}", flush=True)
@@ -61,6 +69,10 @@ async def run(config: Config, ready: asyncio.Future | None = None) -> dict[str, 
     finally:
         if dashboard is not None:
             dashboard.shutdown()
+        if anchor_task is not None:
+            anchor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await anchor_task
         await stop_all(servers)
         ctx.sink.record(
             event="listener_stopped",

@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from botpolice.cli import main
+from botpolice.decoys import load_identity
 from botpolice.eventlog import EventLog
 
 
@@ -94,6 +95,60 @@ class CliRunTests(unittest.TestCase):
         code, _, err = _run(["run", "--config", "definitely-not-here.json"])
         self.assertEqual(code, 2)
         self.assertIn("config not found", err)
+
+
+class CliDecoyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.config_path = self.root / "config.json"
+        self.config_path.write_text(json.dumps({}), encoding="utf-8")
+
+    def test_rotate_decoys_writes_identity(self) -> None:
+        code, out, _ = _run(["rotate-decoys", "--config", str(self.config_path), "--json"])
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertTrue(Path(payload["file"]).exists())
+        self.assertTrue(payload["ssh_banner"].startswith("SSH-2.0-"))
+        self.assertIn("ro.product.name", payload["adb_identity"])
+
+    def test_rotate_decoys_persists(self) -> None:
+        _, out, _ = _run(["rotate-decoys", "--config", str(self.config_path), "--json"])
+        payload = json.loads(out)
+        loaded = load_identity(payload["file"])
+        self.assertIsNotNone(loaded)
+        assert loaded is not None
+        self.assertEqual(loaded.ssh_banner, payload["ssh_banner"])
+
+
+class CliAnchorTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.config_path = self.root / "config.json"
+        self.config_path.write_text(
+            json.dumps({"log_path": "events.jsonl"}), encoding="utf-8"
+        )
+
+    def test_anchor_missing_config_returns_2(self) -> None:
+        code, _, err = _run(["anchor", "--config", "definitely-not-here.json"])
+        self.assertEqual(code, 2)
+        self.assertIn("config not found", err)
+
+    def test_anchor_empty_log_returns_1(self) -> None:
+        code, _, err = _run(["anchor", "--config", str(self.config_path)])
+        self.assertEqual(code, 1)
+        self.assertIn("empty", err)
+
+    def test_anchor_ok(self) -> None:
+        EventLog(self.root / "events.jsonl").append({"event": "one"})
+        code, out, _ = _run(["anchor", "--config", str(self.config_path), "--json"])
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload["seq"], 1)
+        self.assertFalse(payload["delivered"])
 
 
 if __name__ == "__main__":

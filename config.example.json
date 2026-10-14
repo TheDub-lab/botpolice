@@ -32,6 +32,13 @@
     }
   },
 
+  "decoys": {
+    "file": "decoys.json",
+    "auto_generate": true,
+    "ssh_banner": null,
+    "http_server": null
+  },
+
   "limits": {
     "max_connections": 64,
     "per_connection_timeout_seconds": 10,
@@ -49,6 +56,14 @@
     "min_severity": "medium",
     "dedupe_window_seconds": 120,
     "per_ip_max_per_window": 5,
+    "timeout_seconds": 5
+  },
+
+  "anchor": {
+    "enabled": false,
+    "interval_seconds": 900,
+    "webhook_url": null,
+    "telegram": true,
     "timeout_seconds": 5
   },
 

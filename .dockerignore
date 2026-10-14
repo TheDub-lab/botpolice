@@ -13,5 +13,6 @@ events.jsonl
 canaries.json
 canaries/
 config.json
+decoys.json
 *.log
 tests/

@@ -118,6 +118,61 @@ class AdbConfig:
 
 
 @dataclass
+class DecoyConfig:
+    """Per-install decoy identity settings (see :mod:`botpolice.decoys`).
+
+    ``file`` stores a randomized-but-stable identity so a decoy is not trivially
+    fingerprintable across installs. When the file is missing and
+    ``auto_generate`` is true it is created on first run; ``rotate-decoys``
+    regenerates it on demand. The explicit ``ssh_banner`` / ``http_server``
+    values override whatever the file contains.
+    """
+
+    file: str = "decoys.json"
+    auto_generate: bool = True
+    ssh_banner: str | None = None
+    http_server: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> DecoyConfig:
+        data = data or {}
+        return cls(
+            file=str(data.get("file", "decoys.json")),
+            auto_generate=bool(data.get("auto_generate", True)),
+            ssh_banner=data.get("ssh_banner") or None,
+            http_server=data.get("http_server") or None,
+        )
+
+
+@dataclass
+class AnchorConfig:
+    """Off-box anchoring of the log's chain head.
+
+    Periodically sends the current SHA-256 chain head to an external destination
+    (a webhook and/or the configured Telegram chat) so a later rewrite of the
+    log cannot match an anchor that was already shipped. Delivery reuses the
+    alert transport; it is off by default.
+    """
+
+    enabled: bool = False
+    interval_seconds: float = 900.0
+    webhook_url: str | None = None
+    telegram: bool = True
+    timeout_seconds: float = 5.0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> AnchorConfig:
+        data = data or {}
+        return cls(
+            enabled=bool(data.get("enabled", False)),
+            interval_seconds=max(5.0, float(data.get("interval_seconds", 900.0))),
+            webhook_url=data.get("webhook_url"),
+            telegram=bool(data.get("telegram", True)),
+            timeout_seconds=float(data.get("timeout_seconds", 5.0)),
+        )
+
+
+@dataclass
 class AlertConfig:
     webhook_url: str | None = None
     telegram_bot_token: str | None = None
@@ -164,8 +219,10 @@ class Config:
     canary_output_dir: str = "canaries"
     services: dict[str, ServiceConfig] = field(default_factory=dict)
     adb: AdbConfig = field(default_factory=AdbConfig)
+    decoys: DecoyConfig = field(default_factory=DecoyConfig)
     limits: Limits = field(default_factory=Limits)
     alerts: AlertConfig = field(default_factory=AlertConfig)
+    anchor: AnchorConfig = field(default_factory=AnchorConfig)
     dashboard: DashboardConfig = field(default_factory=DashboardConfig)
     advertise_url: str | None = None
     source: Path | None = None
@@ -216,8 +273,10 @@ class Config:
             canary_output_dir=str(data.get("canary_output_dir", "canaries")),
             services=services,
             adb=AdbConfig.from_dict(data.get("adb")),
+            decoys=DecoyConfig.from_dict(data.get("decoys")),
             limits=Limits.from_dict(data.get("limits")),
             alerts=AlertConfig.from_dict(data.get("alerts")),
+            anchor=AnchorConfig.from_dict(data.get("anchor")),
             dashboard=DashboardConfig.from_dict(data.get("dashboard")),
             advertise_url=data.get("advertise_url"),
         )

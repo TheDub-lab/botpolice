@@ -1,10 +1,14 @@
 import json
+import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from botpolice.alerting import Alerter, format_alert_text
 from botpolice.config import AlertConfig
+from botpolice.eventlog import EventLog
+from botpolice.sink import EventSink
 
 
 def _alert(severity="medium", event="http_request", source_ip="127.0.0.1"):
@@ -65,6 +69,48 @@ class AlertFilterTests(unittest.TestCase):
         self.assertIn("[HIGH]", text)
         self.assertIn("http_request", text)
         self.assertIn("127.0.0.1", text)
+
+
+class _Capture:
+    """A stand-in alerter that records every alert it is handed."""
+
+    def __init__(self) -> None:
+        self.alerts: list[dict] = []
+
+    def notify(self, alert):
+        self.alerts.append(alert)
+        return True
+
+    def flush(self, timeout: float = 0.0) -> None:
+        return None
+
+
+class SourceTimelineTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.log = EventLog(Path(self.tmp.name) / "events.jsonl")
+        self.capture = _Capture()
+        self.sink = EventSink(self.log, alerter=self.capture)
+
+    def test_source_summary_is_attached(self) -> None:
+        self.sink.record(event="a", service="http", severity="medium", src_ip="1.2.3.4")
+        self.sink.record(event="b", service="ssh", severity="high", src_ip="1.2.3.4")
+        self.sink.record(event="c", service="http", severity="info", src_ip="5.6.7.8")
+
+        by_source = [a for a in self.capture.alerts if a["source_ip"] == "1.2.3.4"]
+        last = by_source[-1]
+        self.assertEqual(last["source"]["event_count"], 2)
+        self.assertEqual(last["source"]["highest_severity"], "high")
+        self.assertIn("first_seen", last["source"])
+        self.assertEqual(set(last["source"]["services"]), {"http", "ssh"})
+
+        text = format_alert_text(last)
+        self.assertIn("2 event(s)", text)
+
+    def test_no_source_when_ip_missing(self) -> None:
+        self.sink.record(event="a", service="http", severity="medium", src_ip=None)
+        self.assertNotIn("source", self.capture.alerts[-1])
 
 
 class _Receiver(BaseHTTPRequestHandler):

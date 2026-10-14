@@ -24,10 +24,13 @@ interpreted, executed, or evaluated.
 | Fake database | 15432 | Accepts, logs the first bytes, closes | medium |
 | Fake open Android TV box (ADB) | 5555 | Speaks the ADB wire protocol: accepts handshake + AUTH with no credentials, answers `shell:` with canned output, hashes and discards pushed files | **high** (shell / file push) |
 | Canary tokens | — | Fake `.env`/AWS/SSH/JSON creds + `/t/<token>` tripwire | **high** |
-| Agent tripwire | 8080 | Hidden "AI, fetch this URL" snippet pointing at `/t/<token>` | **high** |
+| Agent tripwire | 8080 | Hidden "AI, fetch this URL" snippets in `README.md`/`AGENTS.md`/`CLAUDE.md` and HTML, all pointing at `/t/<token>` | **high** |
 
 Every event is appended to a **hash-chained JSONL log**; `botpolice verify-log`
-detects the first tampered or deleted entry.
+detects the first tampered or deleted entry, and `anchor` ships the chain head
+off-box so a full rewrite is detectable too. Decoy identities (SSH banner, HTTP
+`Server` header, ADB device) are randomized per install via `rotate-decoys`.
+Alerts include a short per-source timeline.
 
 ---
 
@@ -40,7 +43,10 @@ botpolice/
 │   ├── config.py            # config loading + validation
 │   ├── eventlog.py          # append-only JSONL + SHA-256 hash chain
 │   ├── canary.py            # token generation, fake creds, tripwire snippets
+│   ├── decoys.py            # randomized per-install decoy identity
+│   ├── anchor.py            # ships the chain head off-box (tamper evidence)
 │   ├── alerting.py          # webhook / Telegram, dedupe, rate limit
+│   ├── sink.py              # event sink + per-source timeline
 │   ├── server.py            # asyncio orchestrator
 │   ├── dashboard.py         # optional read-only log viewer (Flask)
 │   └── services/            # ssh, http, compute, database, adb decoys
@@ -48,6 +54,7 @@ botpolice/
 ├── enterprise/              # PROPRIETARY enterprise layer (placeholder, not MIT)
 ├── config.example.json
 ├── adb_responses.example.json
+├── decoys.json              # generated per-install decoy identity (gitignored)
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
@@ -107,14 +114,25 @@ botpolice verify-log --path events.jsonl
 botpolice run --config config.json
 
 # Generate a canary token + fake credential file (or tripwire snippet)
-botpolice canary new --placement <name> --type env|aws|ssh|json|tripwire --config config.json
+botpolice canary new --placement <name> --type env|aws|ssh|json|tripwire|markdown|agents|claude --config config.json
 botpolice canary list --store canaries.json
 botpolice canary new --placement runbook --type tripwire --config config.json
+
+# Generate/rotate this install's randomized decoy identity (banners, HTTP server, device)
+botpolice rotate-decoys --config config.json
+
+# Ship the current log chain head off-box (webhook and/or Telegram)
+botpolice anchor --config config.json
 
 # Verify the tamper-evident event log
 botpolice verify-log --path events.jsonl
 botpolice verify-log --path events.jsonl --json
 ```
+
+`rotate-decoys` writes a fresh random identity to `decoys.json` (SSH banner,
+HTTP `Server` header, ADB device profile). `run` picks it up automatically on
+the next start; with `decoys.auto_generate` (default) an identity is created on
+first run if the file does not exist.
 
 `canary new` writes the token->placement mapping to `canaries.json` and drops a
 fake credential/tripwire file under `canaries/`. Plant those files where a
@@ -131,6 +149,12 @@ placement.
 3. A human ignores the comment; an automated agent **fetches the URL**.
 4. The `/t/<token>` hit is logged as a high-severity `tripwire_hit` and the
    alert names the placement. A hit means the content was machine-processed.
+
+The `markdown`, `agents`, and `claude` canary types extend this to the files AI
+coding agents read automatically (`README.md`, `AGENTS.md`, `CLAUDE.md`). Each
+is a Markdown file with a hidden comment addressed to an automated assistant
+that asks it to fetch `/t/<token>`; a human skimming the file ignores it, but an
+agent that ingests the file trips the wire.
 
 ---
 
@@ -197,14 +221,23 @@ Loaded with `--config config.json` and validated on load. See
 | `canary_output_dir` | Where fake credential files go | `canaries` |
 | `services.<name>.enabled` / `.port` | Enable/port per decoy | all enabled, high ports |
 | `adb.bind` | Optional bind override just for the ADB decoy | `null` (uses `bind`) |
-| `adb.responses_file` | JSON `{identity, responses}` for the ADB decoy | `adb_responses.example.json` |
-| `adb.identity` | Fake device property strings in the ADB banner | generic TV box |
+| `adb.responses_file` | JSON `{responses}` for the ADB decoy's canned answers | `adb_responses.example.json` |
+| `adb.identity` | Explicit fake device properties (overrides the decoy identity) | `null` (uses decoy identity) |
 | `adb.max_message_bytes` | Max ADB payload accepted per message | 65536 |
 | `adb.max_commands_per_session` | Max shell/file commands per connection | 64 |
 | `adb.max_total_bytes_per_session` | Max bytes read per connection | 4194304 |
 | `adb.idle_timeout_seconds` | Close a silent ADB connection after this | 30 |
 | `adb.faster_than_human_gap_ms` | Avg command gap below this = `automated` | 150 |
 | `adb.min_commands_for_automation` | Commands needed before `automated` can be true | 3 |
+| `decoys.file` | Per-install randomized identity file | `decoys.json` |
+| `decoys.auto_generate` | Create `decoys.file` on first run if missing | `true` |
+| `decoys.ssh_banner` | Explicit SSH banner (overrides the file) | `null` |
+| `decoys.http_server` | Explicit HTTP `Server` header (overrides the file) | `null` |
+| `anchor.enabled` | Periodically ship the chain head off-box | `false` |
+| `anchor.interval_seconds` | Seconds between automatic anchors | 900 |
+| `anchor.webhook_url` | Anchor destination (falls back to `alerts.webhook_url`) | `null` |
+| `anchor.telegram` | Also send anchors via the configured Telegram bot | `true` |
+| `anchor.timeout_seconds` | Anchor POST timeout | 5 |
 | `limits.max_connections` | Global concurrent-connection cap | 64 |
 | `limits.per_connection_timeout_seconds` | Per-connection timeout | 10 |
 | `limits.max_read_bytes` | Max bytes read per connection | 4096 |
@@ -226,9 +259,20 @@ The generic webhook receives:
   "source_ip": "192.168.56.20",
   "placement": "lab-web",
   "summary": "canary token used in GET /?key=bp-...",
-  "timestamp": "2026-10-13T12:00:00+00:00"
+  "timestamp": "2026-10-13T12:00:00+00:00",
+  "source": {
+    "event_count": 4,
+    "highest_severity": "high",
+    "first_seen": "2026-10-13T11:58:02+00:00",
+    "services": ["http", "ssh", "adb"]
+  }
 }
 ```
+
+When an event has a source IP, the alert carries a short per-source timeline
+(`source`): how many events that IP has produced, its highest severity so far,
+when it was first seen, and which decoys it touched. This turns a single hit
+into "this is the fourth thing that box did."
 
 Alerts are deduplicated and rate-limited per source IP, and delivered on a
 background thread. **A dead or slow webhook never blocks or crashes the
@@ -366,6 +410,7 @@ printf '\x00\x00\x00\x2f\x04\xd2\x16\x2f' | nc -v $SENSOR 15432
 #    On the sensor:
 #      botpolice canary new --placement lab-web --type env --config config.json
 #      botpolice canary new --placement runbook --type tripwire --config config.json
+#      botpolice canary new --placement agents --type agents --config config.json
 #    Copy the token, then from the attacker VM:
 TOKEN=bp-lab-web-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 curl -sv "http://$SENSOR:8080/?key=$TOKEN"     # expect HIGH canary_token_used
@@ -373,6 +418,12 @@ curl -sv "http://$SENSOR:8080/t/$TOKEN"        # expect HIGH tripwire_hit
 
 # 7. Verify the log chain on the sensor
 botpolice verify-log --path events.jsonl
+
+# 7b. Anchor the chain head off-box (set anchor.webhook_url or alerts.webhook_url)
+botpolice anchor --config config.json
+
+# 7c. Rotate the decoy identity, then restart to pick it up
+botpolice rotate-decoys --config config.json
 
 # 8. Tamper test (on the sensor): edit any line, then re-verify -> BROKEN
 # 9. Confirm no outbound: on the sensor, verify no connections leave except
@@ -390,7 +441,9 @@ until you tamper with it.
 
 The suite uses `unittest` (no pytest, no network) and covers hash-chain
 integrity and tamper detection, canary matching, payload size caps, alert
-dedupe/rate limiting, and each decoy service logging a hit when connected to
+dedupe/rate limiting, the per-source timeline, randomized decoy identity
+generation/persistence/resolution, chain-head anchoring (delivery + dead
+destination), and each decoy service logging a hit when connected to
 locally. The ADB decoy additionally has dedicated tests for header parsing
 (malformed, bad magic, oversized), the handshake/AUTH flow, canned-response
 lookup and fallback, file-push hashing with proof nothing is written to disk,
@@ -418,13 +471,19 @@ ruff check botpolice tests
   real services, or a scanner.
 - **Recognizable decoys.** A sophisticated or targeted attacker can fingerprint
   fake banners, canned responses, and generated credential files. Treat hits as
-  signals, not proof.
-- **Rotate and vary.** Re-generate decoys periodically, change ports, banners,
-  model names, and file contents so signatures do not persist.
+  signals, not proof. The decoy identity is randomized per install (SSH banner,
+  HTTP `Server` header, ADB device profile) so canned values are not identical
+  across deployments, but this raises cost, it does not defeat a determined
+  attacker.
+- **Rotate and vary.** Re-generate decoys periodically (`botpolice
+  rotate-decoys`), change ports, banners, model names, and file contents so
+  signatures do not persist.
 - **Tamper-evidence is not tamper-prevention.** The hash chain detects edits and
   deletions, but an attacker with write access to the log file itself can
-  rewrite the entire chain. Ship logs off-box or to append-only storage for
-  higher assurance.
+  rewrite the entire chain. Enable `anchor` to periodically ship the current
+  chain head off-box (webhook and/or Telegram): a head recorded elsewhere makes
+  a later full rewrite detectable. For higher assurance, ship the log to
+  append-only storage.
 - **Time and source integrity.** Timestamps and source IPs rely on the host and
   network; spoofing is possible on some segments.
 - **No protocol fidelity.** The decoys intentionally implement tiny subsets of

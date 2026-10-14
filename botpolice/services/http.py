@@ -146,10 +146,16 @@ async def _respond(
 ) -> None:
     if path.startswith("/t/"):
         body = _render("<!doctype html><html><body>ok</body></html>", ctx)
-        await send_raw(writer, build_response(200, "OK", "text/html; charset=utf-8", body))
+        await send_raw(
+            writer,
+            build_response(200, "OK", "text/html; charset=utf-8", body, server=ctx.http_server),
+        )
     elif path == "/backup" or path.startswith("/backup/") or path.startswith("/backups"):
         await send_raw(
-            writer, build_response(200, "OK", "application/octet-stream", _FAKE_BACKUP)
+            writer,
+            build_response(
+                200, "OK", "application/octet-stream", _FAKE_BACKUP, server=ctx.http_server
+            ),
         )
     else:
         status, reason, content_type, body = _RESPONSES.get(
@@ -158,7 +164,13 @@ async def _respond(
         )
         await send_raw(
             writer,
-            build_response(status, reason, content_type, _render(body, ctx, token_in_path or "none")),
+            build_response(
+                status,
+                reason,
+                content_type,
+                _render(body, ctx, token_in_path or "none"),
+                server=ctx.http_server,
+            ),
         )
 
 

@@ -18,6 +18,8 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.services["database"].port, 15432)
         self.assertEqual(config.services["adb"].port, 5555)
         self.assertEqual(config.alerts.min_severity, "medium")
+        self.assertEqual(config.decoys.file, "decoys.json")
+        self.assertFalse(config.anchor.enabled)
         self.assertEqual(source, example)
 
     def test_adb_defaults(self) -> None:
@@ -43,6 +45,12 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.adb.max_commands_per_session, 3)
         self.assertEqual(config.adb.responses_file, "custom.json")
         self.assertEqual(config.adb.identity["ro.product.name"], "tvbox")
+
+    def test_adb_responses_example_has_no_identity(self) -> None:
+        path = Path(__file__).resolve().parent.parent / "adb_responses.example.json"
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        self.assertIn("responses", doc)
+        self.assertNotIn("identity", doc)
 
     def test_defaults_when_keys_missing(self) -> None:
         config = Config.from_dict({})

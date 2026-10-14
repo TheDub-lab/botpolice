@@ -1,14 +1,5 @@
 {
-  "identity": {
-    "ro.product.name": "tvbox",
-    "ro.product.model": "TV Box",
-    "ro.product.device": "tvbox",
-    "ro.product.brand": "Generic",
-    "ro.build.version.release": "11",
-    "ro.build.type": "user",
-    "ro.debuggable": "1",
-    "features": "cmd,shell_v2,shell_v3"
-  },
+  "_note": "Canned adb shell replies. The fake device identity now lives in decoys.json (see `botpolice rotate-decoys`); this file only maps commands to output.",
   "responses": {
     "id": "uid=2000(shell) gid=2000(shell) context=u:r:shell:s0",
     "whoami": "shell",
