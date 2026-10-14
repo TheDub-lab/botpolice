@@ -18,7 +18,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml README.md requirements.txt adb_responses.example.json ./
+COPY pyproject.toml README.md LICENSE NOTICE requirements.txt adb_responses.example.json ./
 COPY botpolice ./botpolice
 
 RUN pip install . \

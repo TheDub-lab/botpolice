@@ -45,12 +45,19 @@ botpolice/
 │   ├── dashboard.py         # optional read-only log viewer (Flask)
 │   └── services/            # ssh, http, compute, database, adb decoys
 ├── tests/                   # unittest suite (no network required)
+├── enterprise/              # PROPRIETARY enterprise layer (placeholder, not MIT)
 ├── config.example.json
 ├── adb_responses.example.json
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
 ├── botpolice.service        # systemd user unit
+├── LICENSE                  # MIT (open core)
+├── LICENSING.md             # open-core model
+├── CONTRIBUTING.md          # how to contribute (+ CLA requirement)
+├── CLA.md                   # contributor license agreement
+├── TRADEMARKS.md            # name/logo policy
+├── NOTICE
 └── README.md
 ```
 
@@ -432,4 +439,18 @@ ruff check botpolice tests
 
 ## License
 
-MIT. See the repository for details.
+botpolice uses an **open-core** model (see [`LICENSING.md`](LICENSING.md)):
+
+- **Open core — MIT.** The `botpolice/` package, decoy services, CLI, dashboard,
+  and tests are open source under the [MIT License](LICENSE). Use, modify, and
+  redistribute it freely, including commercially.
+- **Enterprise layer — proprietary.** The [`enterprise/`](enterprise/) directory
+  and any hosted/cloud offerings are **not** covered by MIT and require a
+  commercial license (see [`enterprise/LICENSE`](enterprise/LICENSE)).
+- **Contributions** require a [CLA](CLA.md) so the project can keep offering both
+  editions. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Trademarks.** The "botpolice" name and logo are trademarks of TheDub-lab; the
+  software license grants no branding rights. See [`TRADEMARKS.md`](TRADEMARKS.md).
+
+> These licensing documents are templates, not legal advice. Have qualified
+> counsel review them before relying on them.

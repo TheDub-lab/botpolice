@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Security",
+    "License :: OSI Approved :: MIT License",
 ]
 # The listener and all core components use only the Python standard library.
 # The optional read-only dashboard (botpolice.dashboard) needs Flask; see

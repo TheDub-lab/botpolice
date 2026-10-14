@@ -1,0 +1,17 @@
+botpolice
+Copyright (c) 2026 TheDub-lab
+
+This product is distributed under an open-core model:
+
+  * The open-source core (the botpolice Python package and tooling) is licensed
+    under the MIT License. See LICENSE.
+
+  * The enterprise/ directory and any hosted, managed, or cloud offerings are
+    proprietary and are NOT covered by the MIT License. See enterprise/LICENSE
+    and LICENSING.md.
+
+  * "botpolice" and the botpolice logo are trademarks of TheDub-lab. The MIT
+    License does not grant any trademark or branding rights. See TRADEMARKS.md.
+
+  * Contributions require a Contributor License Agreement. See CONTRIBUTING.md
+    and CLA.md.
