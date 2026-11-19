@@ -72,7 +72,7 @@ async def read_until(
 
 
 def peer(addr: Any) -> tuple[str | None, int | None]:
-    if isinstance(addr, (tuple, list)) and len(addr) >= 2:
+    if isinstance(addr, tuple | list) and len(addr) >= 2:
         return str(addr[0]), int(addr[1])
     return None, None
 

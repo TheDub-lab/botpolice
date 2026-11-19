@@ -22,7 +22,7 @@ async def _handle(
         src_ip, src_port = peer(writer.get_extra_info("peername"))
         timeout = ctx.limits.per_connection_timeout_seconds
         dst_port = writer.get_extra_info("sockname")
-        dst_port = int(dst_port[1]) if isinstance(dst_port, (tuple, list)) else None
+        dst_port = int(dst_port[1]) if isinstance(dst_port, tuple | list) else None
         try:
             writer.write(BANNER)
             await writer.drain()
