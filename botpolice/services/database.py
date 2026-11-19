@@ -19,7 +19,7 @@ async def _handle(
     async with ctx.limiter:
         src_ip, src_port = peer(writer.get_extra_info("peername"))
         sockname = writer.get_extra_info("sockname")
-        dst_port = int(sockname[1]) if isinstance(sockname, (tuple, list)) else None
+        dst_port = int(sockname[1]) if isinstance(sockname, tuple | list) else None
 
         data = await read_first(
             reader, ctx.limits.max_read_bytes, ctx.limits.per_connection_timeout_seconds
