@@ -123,6 +123,6 @@ async def send_raw(writer: asyncio.StreamWriter, data: bytes) -> None:
 
 def local_port(writer: asyncio.StreamWriter) -> int | None:
     sockname = writer.get_extra_info("sockname")
-    if isinstance(sockname, (tuple, list)) and len(sockname) >= 2:
+    if isinstance(sockname, tuple | list) and len(sockname) >= 2:
         return int(sockname[1])
     return None
